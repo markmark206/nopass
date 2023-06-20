@@ -7,6 +7,12 @@ defmodule Nopass.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      test_coverage: [
+        summary: [
+          threshold: 90
+        ],
+        ignore_modules: [Nopass.Repo]
+      ],
       deps: deps()
     ]
   end
@@ -14,15 +20,19 @@ defmodule Nopass.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {Nopass.Application, []}
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:bcrypt_elixir, "~> 3.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:ecto_sql, "~> 3.10"},
+      {:nanoid, "~> 2.0.5"},
+      {:postgrex, ">= 0.0.0"}
     ]
   end
 end
