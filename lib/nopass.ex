@@ -25,7 +25,7 @@ defmodule Nopass do
   # expires_after_seconds \\ 600 (10 minutes)
   # length \\ 20
   # dictionary \\ a..z ++ A..Z ++ 0..9
-  def generate(entity_id, opts \\ []) do
+  def new_one_time_password(entity_id, opts \\ []) do
     Logger.info("generating otp for entity #{entity_id}")
 
     params =
@@ -35,17 +35,21 @@ defmodule Nopass do
       })
 
     password = "otp" <> Nanoid.generate(params.length, @password_dictionary)
+
+    password_hash =
+      password
+      |> Bcrypt.add_hash()
+      |> Map.fetch!(:password_hash)
+
     expires_at = System.os_time(:second) + params.expires_after_seconds
 
-    # TODO: hash the password.
     %Nopass.Schema.OneTimePassword{
       identity: entity_id,
-      password_hash: password,
+      password_hash: password_hash,
       expires_at: expires_at
     }
     |> Nopass.Repo.insert!()
-
-    # |> IO.inspect(label: :new_otp)
+    |> IO.inspect(label: :new_otp)
 
     password
   end
@@ -60,7 +64,7 @@ defmodule Nopass do
     # TODO: use login token hash.
     %Nopass.Schema.LoginToken{
       identity: entity,
-      login_token_hash: login_token,
+      login_token_hash: Bcrypt.add_hash(login_token),
       expires_at: expires_at
     }
     |> Nopass.Repo.insert!()
