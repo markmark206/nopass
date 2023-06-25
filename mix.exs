@@ -28,7 +28,6 @@ defmodule Nopass.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:bcrypt_elixir, "~> 3.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.10"},
       {:nanoid, "~> 2.0.5"},
