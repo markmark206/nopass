@@ -1,6 +1,6 @@
 defmodule Nopass do
   @moduledoc """
-  This module implements the logic neeeded for implementing passwordless authentication, which relies on magic codes (aka "one-time passwords") and login tokens.
+  This module implements the logic needed for implementing passwordless authentication, which relies on magic codes (aka "one-time passwords") and login tokens.
 
   This passwordless authentication sequence involves your application sending a one-time password to the user's mailbox.
   The user, then, asks your application to trade the one-time password for a more long-term login token.
