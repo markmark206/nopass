@@ -1,8 +1,15 @@
 .PHONY: \
+	all \
+	build \
 	format \
 	format-check \
 	lint \
 	test
+
+all: build format-check lint test
+
+build:
+	mix compile --force --warnings-as-errors
 
 format:
 	mix format
@@ -14,6 +21,6 @@ lint:
 	mix credo
 
 test:
-	mix test --trace --cover
+	mix test --trace --cover --warnings-as-errors
 
 
