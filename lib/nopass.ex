@@ -40,7 +40,7 @@ defmodule Nopass do
 
   ## Examples
 
-      iex> Nopass.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
+      iex> _one_time_password = Nopass.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
   """
   def new_one_time_password(entity, opts \\ []) do
     params =
