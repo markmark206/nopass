@@ -1,4 +1,6 @@
-defmodule Nopass.Schema do
+defmodule Nopass.Schema.Base do
+  @moduledoc false
+
   defmacro __using__(_) do
     quote do
       use Ecto.Schema
@@ -12,8 +14,9 @@ defmodule Nopass.Schema do
 end
 
 defmodule Nopass.Schema.OneTimePassword do
-  use Nopass.Schema
-  import Ecto.Changeset
+  @moduledoc false
+
+  use Nopass.Schema.Base
 
   schema "one_time_passwords" do
     field(:identity, :string)
@@ -24,8 +27,8 @@ defmodule Nopass.Schema.OneTimePassword do
 end
 
 defmodule Nopass.Schema.LoginToken do
-  use Nopass.Schema
-  import Ecto.Changeset
+  @moduledoc false
+  use Nopass.Schema.Base
 
   schema "login_tokens" do
     field(:identity, :string)

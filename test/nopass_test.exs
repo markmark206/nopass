@@ -1,5 +1,6 @@
 defmodule NopassTest do
   use ExUnit.Case, async: true
+  doctest Nopass.PasswordsAndTokens
 
   alias Nopass.PasswordsAndTokens
 

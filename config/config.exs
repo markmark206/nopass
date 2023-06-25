@@ -7,3 +7,7 @@ config :nopass, Nopass.Repo,
   hostname: "localhost"
 
 config :nopass, ecto_repos: [Nopass.Repo]
+
+config :logger,
+  level: :info,
+  format: "$time $metadata[$level] $message\n"
