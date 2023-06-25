@@ -11,6 +11,18 @@ defmodule Nopass do
   2. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
   3. `verify_login_token()`: verifies a login token,
   4. `delete_login_token()`: deletes a login token.
+
+  The module relies on a postgres database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
+
+  Examples:
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> Nopass.verify_login_token(login_token)
+      {:ok, "luigi@mansion"}
+      iex> Nopass.delete_login_token(login_token)
+      :ok
+      iex> Nopass.verify_login_token(login_token)
+      {:error, :expired_or_missing}
   """
 
   import Ecto.Query
@@ -29,9 +41,7 @@ defmodule Nopass do
   ## Examples
 
       iex> Nopass.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
-
   """
-
   def new_one_time_password(entity, opts \\ []) do
     params =
       Enum.into(opts, %{
@@ -52,7 +62,23 @@ defmodule Nopass do
     one_time_password
   end
 
-  def trade_one_time_password_for_login_token(otp, opts \\ []) do
+  @doc ~S"""
+  Trades a valid one-time password for login token. A one-time password can only be used once.
+
+  Parameters:
+     `one_time_password`: the one-time password to verify and consume.
+     `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
+     `length`: the length of the login token to be generated. Optional, default: 50
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> Nopass.verify_login_token(login_token)
+      {:ok, "luigi@mansion"}
+      iex> {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+  """
+  def trade_one_time_password_for_login_token(one_time_password, opts \\ []) do
     params =
       Enum.into(opts, %{
         expires_after_seconds: 600,
@@ -62,7 +88,7 @@ defmodule Nopass do
     now = System.os_time(:second)
 
     from(otp in Nopass.Schema.OneTimePassword,
-      where: otp.password == ^otp and otp.expires_at >= ^now
+      where: otp.password == ^one_time_password and otp.expires_at >= ^now
     )
     |> Nopass.Repo.one()
     |> case do
@@ -75,6 +101,25 @@ defmodule Nopass do
     end
   end
 
+  @doc ~S"""
+  Verifies a login token.
+
+  Returns:
+  `{:ok, entity_name}` if the supplied token is valid.
+  `{:error, :expired_or_missing}` if the supplied token is not valid.
+
+  Parameters:
+     `login_token`: the login token to verify.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> Nopass.verify_login_token(login_token)
+      {:ok, "luigi@mansion"}
+      iex> Nopass.verify_login_token("bad login token")
+      {:error, :expired_or_missing}
+  """
   def verify_login_token(login_token) do
     now = System.os_time(:second)
 
@@ -93,6 +138,30 @@ defmodule Nopass do
     end
   end
 
+  @doc ~S"""
+  Deletes a login token.
+
+  Once the login token has been deleted, it can no longer be successfully verified.
+
+  Returns:
+  `:ok`
+
+  Parameters:
+     `login_token`: the login token to delete.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> Nopass.verify_login_token(login_token)
+      {:ok, "luigi@mansion"}
+      iex> Nopass.delete_login_token(login_token)
+      :ok
+      iex> Nopass.verify_login_token(login_token)
+      {:error, :expired_or_missing}
+      iex> Nopass.delete_login_token("no such login token")
+      :ok
+  """
   def delete_login_token(login_token) do
     from(lt in Nopass.Schema.LoginToken,
       where: lt.login_token == ^login_token
