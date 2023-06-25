@@ -36,7 +36,7 @@ defmodule Nopass do
   Parameters:
      `entity`: the entity (e.g. email address) for which you are generating the one-time password
      `expires`_after_seconds: the lifetime of the generated one-time passwords after which the password expires. Optional, default: 600
-     `length`: the length of the one-time password. Optional, default: 20
+     `length`: the length of the random portion of the one-time password. Optional, default: 20
 
   ## Examples
 
@@ -68,7 +68,7 @@ defmodule Nopass do
   Parameters:
      `one_time_password`: the one-time password to verify and consume.
      `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
-     `length`: the length of the login token to be generated. Optional, default: 50
+     `length`: the length of the random portion of the login token to be generated. Optional, default: 50
 
   ## Examples
 
