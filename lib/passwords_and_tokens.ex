@@ -3,12 +3,7 @@ defmodule Nopass.PasswordsAndTokens do
   require Logger
 
   @password_dictionary Enum.to_list(?a..?z) ++ Enum.to_list(?A..?Z) ++ Enum.to_list(?0..?9)
-  @one_year_ish_in_seconds 60 * 60 * 24 * 365
-  @otp_expires_after_default @one_year_ish_in_seconds
-  @one_time_password_length_default 20
-  @login_token_length_default 30
 
-  # expires_after_seconds \\ 600, length \\ @one_time_password_length_default) do
   def new_one_time_password(entity, opts \\ []) do
     params =
       Enum.into(opts, %{
@@ -52,9 +47,9 @@ defmodule Nopass.PasswordsAndTokens do
     end
   end
 
-  defp insert_login_token(entity, expires_after, length) do
+  defp insert_login_token(entity, expires_after_seconds, length) do
     login_token = "lt" <> Nanoid.generate(length, @password_dictionary)
-    expires_at = System.os_time(:second) + @one_year_ish_in_seconds
+    expires_at = System.os_time(:second) + expires_after_seconds
 
     {:ok, _} =
       %Nopass.Schema.LoginToken{
