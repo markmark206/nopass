@@ -1,4 +1,4 @@
-defmodule Nopass.PasswordsAndTokens do
+defmodule Nopass do
   @moduledoc """
   This module implements the logic neeeded for implementing passwordless authentication, which relies on magic codes (aka "one-time passwords") and login tokens.
 
@@ -28,7 +28,7 @@ defmodule Nopass.PasswordsAndTokens do
 
   ## Examples
 
-      iex> Nopass.PasswordsAndTokens.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
+      iex> Nopass.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
 
   """
 
