@@ -1,12 +1,7 @@
 defmodule NopassTest do
-  use ExUnit.Case
-  doctest Nopass
+  use ExUnit.Case, async: true
 
   alias Nopass.PasswordsAndTokens
-
-  test "greets the world" do
-    assert Nopass.hello() == :world
-  end
 
   describe "passwords and tokens" do
     test "new otp" do
@@ -39,17 +34,29 @@ defmodule NopassTest do
     end
 
     test "try to use an expired otp" do
-      otp_expires_in_a_sec = PasswordsAndTokens.new_one_time_password("mario", expires_after_seconds: 1)
-      assert_looks_like_a_one_time_password(otp_expires_in_a_sec)
-
+      one_time_password = PasswordsAndTokens.new_one_time_password("mario", expires_after_seconds: 1)
+      assert_looks_like_a_one_time_password(one_time_password)
       Process.sleep(2000)
+      {:error, :expired_or_missing} = PasswordsAndTokens.trade_one_time_password_for_login_token(one_time_password)
+    end
 
-      {:error, :expired_or_missing} = PasswordsAndTokens.trade_one_time_password_for_login_token(otp_expires_in_a_sec)
+    test "try to use an expired login token" do
+      entity = "princess peach"
+
+      one_time_password = PasswordsAndTokens.new_one_time_password(entity)
+      assert_looks_like_a_one_time_password(one_time_password)
+
+      {:ok, login_token} =
+        PasswordsAndTokens.trade_one_time_password_for_login_token(one_time_password, expires_after_seconds: 1)
+
+      assert_looks_like_a_login_token(login_token)
+      {:ok, ^entity} = PasswordsAndTokens.verify_login_token(login_token)
+      Process.sleep(2000)
+      {:error, :expired_or_missing} = PasswordsAndTokens.verify_login_token(login_token)
     end
 
     test "verify a one-time password a bunch of times" do
-      entity = "mario"
-
+      entity = "wario"
       otp = PasswordsAndTokens.new_one_time_password(entity)
       {:ok, login_token} = PasswordsAndTokens.trade_one_time_password_for_login_token(otp)
 
