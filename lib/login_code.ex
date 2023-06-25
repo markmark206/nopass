@@ -17,7 +17,7 @@ defmodule Nopass.Schema.OneTimePassword do
 
   schema "one_time_passwords" do
     field(:identity, :string)
-    field(:password_hash, :string)
+    field(:password, :string)
     field(:expires_at, :integer)
     timestamps()
   end
@@ -29,7 +29,7 @@ defmodule Nopass.Schema.LoginToken do
 
   schema "login_tokens" do
     field(:identity, :string)
-    field(:login_token_hash, :string)
+    field(:login_token, :string)
     field(:expires_at, :integer)
     timestamps()
   end

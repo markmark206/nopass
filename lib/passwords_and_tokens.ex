@@ -8,39 +8,38 @@ defmodule Nopass.PasswordsAndTokens do
   @one_time_password_length_default 20
   @login_token_length_default 30
 
-  def new_one_time_password(entity, expires_after_seconds \\ 600, length \\ @one_time_password_length_default) do
-    one_time_password = Nanoid.generate(length, @password_dictionary)
+  # expires_after_seconds \\ 600, length \\ @one_time_password_length_default) do
+  def new_one_time_password(entity, opts \\ []) do
+    params =
+      Enum.into(opts, %{
+        expires_after_seconds: 600,
+        length: 20
+      })
 
-    password_hash =
-      one_time_password
-      |> Bcrypt.add_hash()
-      |> Map.fetch!(:password_hash)
+    one_time_password = "otp" <> Nanoid.generate(params.length, @password_dictionary)
+    expires_at = System.os_time(:second) + params.expires_after_seconds
 
-    expires_at = System.os_time(:second) + expires_after_seconds
+    %Nopass.Schema.OneTimePassword{
+      identity: entity,
+      password: one_time_password,
+      expires_at: expires_at
+    }
+    |> Nopass.Repo.insert!()
 
-    new_one_time_password_record =
-      %Nopass.Schema.OneTimePassword{
-        identity: entity,
-        password_hash: password_hash,
-        expires_at: expires_at
-      }
-      |> Nopass.Repo.insert!()
-
-    {:ok, new_one_time_password_record.id, one_time_password}
+    one_time_password
   end
 
-  def trade_one_time_password_for_login_token(
-        otp_id,
-        otp,
-        expires_after \\ @one_year_ish_in_seconds,
-        length \\ @login_token_length_default
-      ) do
+  def trade_one_time_password_for_login_token(otp, opts \\ []) do
+    params =
+      Enum.into(opts, %{
+        expires_after_seconds: 600,
+        length: 50
+      })
+
     now = System.os_time(:second)
 
     from(otp in Nopass.Schema.OneTimePassword,
-      where:
-        otp.id == ^otp_id and
-          otp.expires_at >= ^now
+      where: otp.password == ^otp and otp.expires_at >= ^now
     )
     |> Nopass.Repo.one()
     |> case do
@@ -48,42 +47,32 @@ defmodule Nopass.PasswordsAndTokens do
         {:error, :expired_or_missing}
 
       otp_record ->
-        if Bcrypt.verify_pass(otp, otp_record.password_hash) do
-          Nopass.Repo.delete(otp_record)
-          insert_login_token(otp_record.identity, expires_after, length)
-        else
-          {:error, :expired_or_missing}
-        end
+        Nopass.Repo.delete(otp_record)
+        insert_login_token(otp_record.identity, params.expires_after_seconds, params.length)
     end
   end
 
   defp insert_login_token(entity, expires_after, length) do
-    login_token = Nanoid.generate(length, @password_dictionary)
-
-    login_token_hash =
-      login_token
-      |> Bcrypt.add_hash()
-      |> Map.fetch!(:password_hash)
-
+    login_token = "lt" <> Nanoid.generate(length, @password_dictionary)
     expires_at = System.os_time(:second) + @one_year_ish_in_seconds
 
-    login_token_record =
+    {:ok, _} =
       %Nopass.Schema.LoginToken{
         identity: entity,
-        login_token_hash: login_token_hash,
+        login_token: login_token,
         expires_at: expires_at
       }
-      |> Nopass.Repo.insert!()
+      |> Nopass.Repo.insert()
 
-    {:ok, login_token_record.id, login_token}
+    {:ok, login_token}
   end
 
-  def verify_login_token(login_token_id, login_token) do
+  def verify_login_token(login_token) do
     now = System.os_time(:second)
 
     from(lt in Nopass.Schema.LoginToken,
       where:
-        lt.id == ^login_token_id and
+        lt.login_token == ^login_token and
           lt.expires_at >= ^now
     )
     |> Nopass.Repo.one()
@@ -92,24 +81,13 @@ defmodule Nopass.PasswordsAndTokens do
         {:error, :expired_or_missing}
 
       login_token_record ->
-        {uSecs, result} =
-          :timer.tc(fn ->
-            if Bcrypt.verify_pass(login_token, login_token_record.login_token_hash) do
-              {:ok, login_token_record.identity}
-            else
-              {:error, :expired_or_missing}
-            end
-          end)
-
-        Logger.info("bcrypt duration, #{uSecs / 1_000_000}")
-
-        result
+        {:ok, login_token_record.identity}
     end
   end
 
-  def delete_login_token(login_token_id) do
+  def delete_login_token(login_token) do
     from(lt in Nopass.Schema.LoginToken,
-      where: lt.id == ^login_token_id
+      where: lt.login_token == ^login_token
     )
     |> Nopass.Repo.delete_all()
 

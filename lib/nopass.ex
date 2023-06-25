@@ -45,7 +45,7 @@ defmodule Nopass do
 
     %Nopass.Schema.OneTimePassword{
       identity: entity_id,
-      password_hash: password_hash,
+      password: password_hash,
       expires_at: expires_at
     }
     |> Nopass.Repo.insert!()
@@ -64,7 +64,7 @@ defmodule Nopass do
     # TODO: use login token hash.
     %Nopass.Schema.LoginToken{
       identity: entity,
-      login_token_hash: Bcrypt.add_hash(login_token),
+      login_token: Bcrypt.add_hash(login_token),
       expires_at: expires_at
     }
     |> Nopass.Repo.insert!()

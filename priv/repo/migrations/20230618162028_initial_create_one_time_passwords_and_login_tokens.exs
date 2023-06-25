@@ -4,7 +4,7 @@ defmodule Nopass.Repo.Migrations.InitialCreateOneTimePasswordsAndLoginTokens do
   def change do
     create table(:one_time_passwords) do
       add(:identity, :string)
-      add(:password_hash, :string)
+      add(:password, :string)
       add(:expires_at, :bigint)
       timestamps(type: :bigint)
     end
@@ -12,17 +12,16 @@ defmodule Nopass.Repo.Migrations.InitialCreateOneTimePasswordsAndLoginTokens do
     create(
       unique_index(
         :one_time_passwords,
-        [:password_hash],
+        [:password],
         name: :unique_one_time_password_index
       )
     )
 
-    create(index(:one_time_passwords, [:id, :expires_at], name: :one_time_passwords_id_expires_at_index))
-    create(index(:one_time_passwords, [:id], name: :one_time_passwords_id_index))
+    create(index(:one_time_passwords, [:password, :expires_at], name: :one_time_passwords_expires_at_index))
 
     create table(:login_tokens) do
       add(:identity, :string)
-      add(:login_token_hash, :string)
+      add(:login_token, :string)
       add(:expires_at, :bigint)
       timestamps(type: :bigint)
     end
@@ -30,12 +29,11 @@ defmodule Nopass.Repo.Migrations.InitialCreateOneTimePasswordsAndLoginTokens do
     create(
       unique_index(
         :login_tokens,
-        [:login_token_hash],
-        name: :unique_login_token_hashes_index
+        [:login_token],
+        name: :unique_login_tokens_index
       )
     )
 
-    create(index(:login_tokens, [:id, :expires_at], name: :login_tokens_id_expires_at_index))
-    create(index(:login_tokens, [:id], name: :login_tokens_id_index))
+    create(index(:login_tokens, [:login_token, :expires_at], name: :login_tokens_expires_at_index))
   end
 end
