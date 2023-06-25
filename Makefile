@@ -12,6 +12,10 @@ all: build db-setup format-check lint test
 build:
 	mix compile --force --warnings-as-errors
 
+db-setup:
+	mix ecto.create
+	mix ecto.migrate
+
 format:
 	mix format
 
@@ -20,10 +24,6 @@ format-check:
 
 lint:
 	mix credo
-
-db-setup:
-	mix ecto.create
-	mix ecto.migrate
 
 test:
 	mix test --trace --cover --warnings-as-errors
