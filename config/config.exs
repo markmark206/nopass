@@ -1,6 +1,7 @@
 import Config
 
 config :nopass, Nopass.Repo,
+  pool: Ecto.Adapters.SQL.Sandbox,
   database: "nopass_repo",
   username: "postgres",
   password: "postgres",
