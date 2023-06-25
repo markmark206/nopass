@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   validate:
-    name: Run tests
+    name: Validate Changes
     runs-on: ubuntu-latest
     services:
        pg:
