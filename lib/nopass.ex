@@ -81,10 +81,7 @@ defmodule Nopass do
       {:ok, "user known as luigi@mansion"}
       iex> {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
   """
-  def trade_one_time_password_for_login_token(
-        one_time_password,
-        opts \\ []
-      ) do
+  def trade_one_time_password_for_login_token(one_time_password, opts \\ []) do
     login_token_params =
       Enum.into(opts, %{
         login_token_identity: fn otp_identity -> otp_identity end,
