@@ -35,8 +35,9 @@ defmodule Nopass do
 
   Parameters:
      `entity`: the entity (e.g. email address) for which you are generating the one-time password
-     `expires`_after_seconds: the lifetime of the generated one-time passwords after which the password expires. Optional, default: 600
-     `length`: the length of the random portion of the one-time password. Optional, default: 20
+     `opts`: optional options, including:
+       `expires`_after_seconds: the lifetime of the generated one-time passwords after which the password expires. Optional, default: 600
+       `length`: the length of the random portion of the one-time password. Optional, default: 20
 
   ## Examples
 
@@ -67,15 +68,17 @@ defmodule Nopass do
 
   Parameters:
      `one_time_password`: the one-time password to verify and consume.
-     `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
-     `length`: the length of the random portion of the login token to be generated. Optional, default: 50
+     `opts`: optional options, including:
+       `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
+       `length`: the length of the random portion of the login token to be generated. Optional, default: 50
+       'login_token_identity': the value of the identity to be associated with the login token or the function for computing it, based on the value of the one-time-password's identity. Optional, default: the identity associated with the one-time password.
 
   ## Examples
 
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
-      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password, login_token_identity: fn x -> "user known as " <> x end)
       iex> Nopass.verify_login_token(login_token)
-      {:ok, "luigi@mansion"}
+      {:ok, "user known as luigi@mansion"}
       iex> {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
   """
   def trade_one_time_password_for_login_token(
