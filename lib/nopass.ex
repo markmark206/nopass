@@ -43,14 +43,14 @@ defmodule Nopass do
       iex> _one_time_password = Nopass.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
   """
   def new_one_time_password(entity, opts \\ []) do
-    params =
+    one_time_password_params =
       Enum.into(opts, %{
         expires_after_seconds: 600,
         length: 20
       })
 
-    one_time_password = "otp" <> Nanoid.generate(params.length, @password_dictionary)
-    expires_at = System.os_time(:second) + params.expires_after_seconds
+    one_time_password = "otp" <> Nanoid.generate(one_time_password_params.length, @password_dictionary)
+    expires_at = System.os_time(:second) + one_time_password_params.expires_after_seconds
 
     %Nopass.Schema.OneTimePassword{
       identity: entity,
@@ -78,9 +78,13 @@ defmodule Nopass do
       {:ok, "luigi@mansion"}
       iex> {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
   """
-  def trade_one_time_password_for_login_token(one_time_password, opts \\ []) do
-    params =
+  def trade_one_time_password_for_login_token(
+        one_time_password,
+        opts \\ []
+      ) do
+    login_token_params =
       Enum.into(opts, %{
+        login_token_identity: fn otp_identity -> otp_identity end,
         expires_after_seconds: 600,
         length: 50
       })
@@ -97,7 +101,15 @@ defmodule Nopass do
 
       otp_record ->
         Nopass.Repo.delete(otp_record)
-        insert_login_token(otp_record.identity, params.expires_after_seconds, params.length)
+
+        login_token_identity =
+          if is_function(login_token_params.login_token_identity) do
+            login_token_params.login_token_identity.(otp_record.identity)
+          else
+            login_token_params.login_token_identity
+          end
+
+        insert_login_token(login_token_identity, login_token_params.expires_after_seconds, login_token_params.length)
     end
   end
 
