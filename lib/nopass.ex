@@ -35,22 +35,23 @@ defmodule Nopass do
 
   Parameters:
      `entity`: the entity (e.g. email address) for which you are generating the one-time password
-     `expires`_after_seconds: the lifetime of the generated one-time passwords after which the password expires. Optional, default: 600
-     `length`: the length of the random portion of the one-time password. Optional, default: 20
+     `opts`: optional options, including:
+       `expires`_after_seconds: the lifetime of the generated one-time passwords after which the password expires. Optional, default: 600
+       `length`: the length of the random portion of the one-time password. Optional, default: 20
 
   ## Examples
 
       iex> _one_time_password = Nopass.new_one_time_password("luigi@mansion", after_seconds: 900, length: 30)
   """
   def new_one_time_password(entity, opts \\ []) do
-    params =
+    one_time_password_params =
       Enum.into(opts, %{
         expires_after_seconds: 600,
         length: 20
       })
 
-    one_time_password = "otp" <> Nanoid.generate(params.length, @password_dictionary)
-    expires_at = System.os_time(:second) + params.expires_after_seconds
+    one_time_password = "otp" <> Nanoid.generate(one_time_password_params.length, @password_dictionary)
+    expires_at = System.os_time(:second) + one_time_password_params.expires_after_seconds
 
     %Nopass.Schema.OneTimePassword{
       identity: entity,
@@ -67,20 +68,23 @@ defmodule Nopass do
 
   Parameters:
      `one_time_password`: the one-time password to verify and consume.
-     `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
-     `length`: the length of the random portion of the login token to be generated. Optional, default: 50
+     `opts`: optional options, including:
+       `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
+       `length`: the length of the random portion of the login token to be generated. Optional, default: 50
+       'login_token_identity': the value of the identity to be associated with the login token or the function for computing it, based on the value of the one-time-password's identity. Optional, default: the identity associated with the one-time password.
 
   ## Examples
 
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
-      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password, login_token_identity: fn x -> "user known as " <> x end)
       iex> Nopass.verify_login_token(login_token)
-      {:ok, "luigi@mansion"}
+      {:ok, "user known as luigi@mansion"}
       iex> {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
   """
   def trade_one_time_password_for_login_token(one_time_password, opts \\ []) do
-    params =
+    login_token_params =
       Enum.into(opts, %{
+        login_token_identity: fn otp_identity -> otp_identity end,
         expires_after_seconds: 600,
         length: 50
       })
@@ -97,7 +101,15 @@ defmodule Nopass do
 
       otp_record ->
         Nopass.Repo.delete(otp_record)
-        insert_login_token(otp_record.identity, params.expires_after_seconds, params.length)
+
+        login_token_identity =
+          if is_function(login_token_params.login_token_identity) do
+            login_token_params.login_token_identity.(otp_record.identity)
+          else
+            login_token_params.login_token_identity
+          end
+
+        insert_login_token(login_token_identity, login_token_params.expires_after_seconds, login_token_params.length)
     end
   end
 

@@ -31,7 +31,33 @@ defmodule NopassTest do
 
     # Deleting an already deleted or simply bad login token should be fine.
     :ok = Nopass.delete_login_token(login_token)
-    :ok = Nopass.delete_login_token("non such")
+    :ok = Nopass.delete_login_token("nonesuch")
+  end
+
+  test "login token identity, value" do
+    one_time_password = Nopass.new_one_time_password("luigi")
+
+    {:ok, login_token} =
+      Nopass.trade_one_time_password_for_login_token(
+        one_time_password,
+        login_token_identity: "mario"
+      )
+
+    {:ok, "mario"} = Nopass.verify_login_token(login_token)
+  end
+
+  test "login token identity, function" do
+    one_time_password = Nopass.new_one_time_password("luigi")
+
+    f_prepend_with_yay = fn x -> "yay" <> x end
+
+    {:ok, login_token} =
+      Nopass.trade_one_time_password_for_login_token(
+        one_time_password,
+        login_token_identity: f_prepend_with_yay
+      )
+
+    {:ok, "yayluigi"} = Nopass.verify_login_token(login_token)
   end
 
   test "try to use an expired one-time password" do
