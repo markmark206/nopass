@@ -183,6 +183,20 @@ defmodule Nopass do
     :ok
   end
 
+  def for_test_use_only_find_otp_containing_identity_string(identity_substring) do
+    from(otp in Nopass.Schema.OneTimePassword,
+      where: like(otp.identity, ^"%#{identity_substring}%")
+    )
+    |> Nopass.Repo.one()
+  end
+
+  def for_test_use_only_find_login_token_containing_identity_string(identity_substring) do
+    from(otp in Nopass.Schema.LoginToken,
+      where: like(otp.identity, ^"%#{identity_substring}%")
+    )
+    |> Nopass.Repo.one()
+  end
+
   defp insert_login_token(entity, expires_after_seconds, length) do
     login_token = "lt" <> Nanoid.generate(length, @password_dictionary)
     expires_at = System.os_time(:second) + expires_after_seconds
