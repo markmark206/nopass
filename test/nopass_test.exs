@@ -21,15 +21,15 @@ defmodule NopassTest do
     one_time_password = Nopass.new_one_time_password(entity)
     assert_looks_like_a_one_time_password(one_time_password)
 
-    assert nil != Nopass.for_test_use_only_find_otp_containing_identity_string(entity)
+    assert nil != Nopass.test_use_only_find_otp_containing_identity_string(entity)
 
     {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token("not a good password")
 
-    assert nil == Nopass.for_test_use_only_find_login_token_containing_identity_string(entity)
+    assert nil == Nopass.test_use_only_find_login_token_containing_identity_string(entity)
     {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
     assert_looks_like_a_login_token(login_token)
-    assert nil == Nopass.for_test_use_only_find_otp_containing_identity_string(entity)
-    assert nil != Nopass.for_test_use_only_find_login_token_containing_identity_string(entity)
+    assert nil == Nopass.test_use_only_find_otp_containing_identity_string(entity)
+    assert nil != Nopass.test_use_only_find_login_token_containing_identity_string(entity)
 
     # A one time password can only be used once.
     {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
@@ -42,7 +42,7 @@ defmodule NopassTest do
     {:ok, ^entity} = Nopass.verify_login_token(login_token)
     :ok = Nopass.delete_login_token(login_token)
     {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
-    assert nil == Nopass.for_test_use_only_find_login_token_containing_identity_string(entity)
+    assert nil == Nopass.test_use_only_find_login_token_containing_identity_string(entity)
 
     # Deleting an already deleted or simply bad login token should be fine.
     :ok = Nopass.delete_login_token(login_token)

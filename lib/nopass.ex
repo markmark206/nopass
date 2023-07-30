@@ -183,14 +183,14 @@ defmodule Nopass do
     :ok
   end
 
-  def for_test_use_only_find_otp_containing_identity_string(identity_substring) do
+  def test_use_only_find_otp_containing_identity_string(identity_substring) do
     from(otp in Nopass.Schema.OneTimePassword,
       where: like(otp.identity, ^"%#{identity_substring}%")
     )
     |> Nopass.Repo.one()
   end
 
-  def for_test_use_only_find_login_token_containing_identity_string(identity_substring) do
+  def test_use_only_find_login_token_containing_identity_string(identity_substring) do
     from(otp in Nopass.Schema.LoginToken,
       where: like(otp.identity, ^"%#{identity_substring}%")
     )
