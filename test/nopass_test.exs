@@ -2,20 +2,34 @@ defmodule NopassTest do
   use ExUnit.Case, async: true
   doctest Nopass
 
-  setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Nopass.Repo)
+  defp random_string() do
+    for _ <- 1..10, into: "", do: <<Enum.random(?a..?z)>>
   end
 
-  test "one-time password and login token: the life of" do
-    entity = "luigi"
+  defp test_id() do
+    "#{System.os_time(:second)}_#{random_string()}"
+  end
+
+  setup do
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Nopass.Repo)
+    {:ok, %{test_id: test_id()}}
+  end
+
+  test "one-time password and login token: the life of", %{test_id: test_id} do
+    entity = "luigi_#{test_id}"
 
     one_time_password = Nopass.new_one_time_password(entity)
     assert_looks_like_a_one_time_password(one_time_password)
 
+    assert nil != Nopass.test_use_only_find_otp_containing_identity_string(entity)
+
     {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token("not a good password")
 
+    assert nil == Nopass.test_use_only_find_login_token_containing_identity_string(entity)
     {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
     assert_looks_like_a_login_token(login_token)
+    assert nil == Nopass.test_use_only_find_otp_containing_identity_string(entity)
+    assert nil != Nopass.test_use_only_find_login_token_containing_identity_string(entity)
 
     # A one time password can only be used once.
     {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
@@ -28,6 +42,7 @@ defmodule NopassTest do
     {:ok, ^entity} = Nopass.verify_login_token(login_token)
     :ok = Nopass.delete_login_token(login_token)
     {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
+    assert nil == Nopass.test_use_only_find_login_token_containing_identity_string(entity)
 
     # Deleting an already deleted or simply bad login token should be fine.
     :ok = Nopass.delete_login_token(login_token)
