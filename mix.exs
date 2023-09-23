@@ -43,7 +43,7 @@ defmodule Nopass.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.10"},
-      {:nanoid, "~> 2.0.5"},
+      {:nanoid, "~> 2.1"},
       {:postgrex, ">= 0.0.0"}
     ]
   end
