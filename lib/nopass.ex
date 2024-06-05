@@ -69,7 +69,7 @@ defmodule Nopass do
   Parameters:
      `one_time_password`: the one-time password to verify and consume.
      `opts`: optional options, including:
-       `expires`_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
+       `expires_after_seconds: the lifetime of the generated login token, in seconds, after which the login token expires. Optional, default: 86400 (one day)
        `length`: the length of the random portion of the login token to be generated. Optional, default: 50
        'login_token_identity': the value of the identity to be associated with the login token or the function for computing it, based on the value of the one-time-password's identity. Optional, default: the identity associated with the one-time password.
 
@@ -85,7 +85,7 @@ defmodule Nopass do
     login_token_params =
       Enum.into(opts, %{
         login_token_identity: fn otp_identity -> otp_identity end,
-        expires_after_seconds: 600,
+        expires_after_seconds: 60 * 60 * 24,
         length: 50
       })
 
