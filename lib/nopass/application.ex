@@ -8,7 +8,8 @@ defmodule Nopass.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      Nopass.Repo
+      Nopass.Repo,
+      {Ecto.Migrator, repos: [Nopass.Repo]}
       # Starts a worker by calling: Nopass.Worker.start_link(arg)
       # {Nopass.Worker, arg}
     ]
