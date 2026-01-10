@@ -114,6 +114,108 @@ defmodule NopassTest do
     end)
   end
 
+  test "verify_login_token with metadata updates last_verified_at and metadata", %{test_id: test_id} do
+    entity = "bowser_#{test_id}"
+    metadata = %{"ip_address" => "1.2.3.4", "user_agent" => "test browser"}
+
+    one_time_password = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+
+    # Before verification with metadata, last_verified_at should be nil
+    [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_before.last_verified_at == nil
+    assert token_before.metadata == nil
+    assert token_before.login_token == "<redacted>"
+
+    # Verify with metadata
+    {:ok, ^entity} = Nopass.verify_login_token(login_token, metadata)
+
+    # After verification, last_verified_at and metadata should be set
+    [%Nopass.Schema.LoginToken{} = token_after] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_after.last_verified_at != nil
+    assert token_after.metadata == metadata
+  end
+
+  test "verify_login_token without metadata does not update the record", %{test_id: test_id} do
+    entity = "toad_#{test_id}"
+
+    one_time_password = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+
+    [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
+
+    # Verify without metadata
+    {:ok, ^entity} = Nopass.verify_login_token(login_token)
+
+    # Record should not be updated
+    [%Nopass.Schema.LoginToken{} = token_after] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_after.last_verified_at == token_before.last_verified_at
+    assert token_after.metadata == token_before.metadata
+  end
+
+  test "list_login_tokens_for_identity returns correct tokens", %{test_id: test_id} do
+    entity = "yoshi_#{test_id}"
+
+    # Create two tokens for the same identity
+    otp1 = Nopass.new_one_time_password(entity)
+    {:ok, _login_token1} = Nopass.trade_one_time_password_for_login_token(otp1)
+
+    otp2 = Nopass.new_one_time_password(entity)
+    {:ok, _login_token2} = Nopass.trade_one_time_password_for_login_token(otp2)
+
+    tokens = Nopass.list_login_tokens_for_identity(entity)
+    assert length(tokens) == 2
+
+    # Verify structure of returned tokens
+    Enum.each(tokens, fn %Nopass.Schema.LoginToken{} = token ->
+      assert is_integer(token.id)
+      assert is_integer(token.inserted_at)
+      assert is_integer(token.expires_at)
+      assert token.identity == entity
+      assert token.login_token == "<redacted>"
+    end)
+  end
+
+  test "list_login_tokens_for_identity excludes expired tokens", %{test_id: test_id} do
+    entity = "dk_#{test_id}"
+
+    # Create an expired token
+    otp = Nopass.new_one_time_password(entity)
+    {:ok, _login_token} = Nopass.trade_one_time_password_for_login_token(otp, expires_after_seconds: 1)
+
+    # Initially should have one token
+    assert length(Nopass.list_login_tokens_for_identity(entity)) == 1
+
+    # Wait for expiration
+    Process.sleep(2000)
+
+    # Should return empty list after expiration
+    assert Nopass.list_login_tokens_for_identity(entity) == []
+  end
+
+  test "list_login_tokens_for_identity returns empty list for unknown identity" do
+    assert Nopass.list_login_tokens_for_identity("unknown_identity_xyz") == []
+  end
+
+  test "delete_login_token_by_id deletes the correct token", %{test_id: test_id} do
+    entity = "diddy_#{test_id}"
+
+    otp = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(otp)
+
+    [%Nopass.Schema.LoginToken{} = token] = Nopass.list_login_tokens_for_identity(entity)
+
+    :ok = Nopass.delete_login_token_by_id(token.id)
+
+    # Token should no longer be valid
+    {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
+    assert Nopass.list_login_tokens_for_identity(entity) == []
+  end
+
+  test "delete_login_token_by_id returns :ok even if ID doesn't exist" do
+    :ok = Nopass.delete_login_token_by_id(999_999_999)
+  end
+
   defp assert_looks_like_a_one_time_password(one_time_password) do
     assert one_time_password
     assert String.length(one_time_password) == 23
