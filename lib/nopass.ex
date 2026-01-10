@@ -55,7 +55,7 @@ defmodule Nopass do
 
     %Nopass.Schema.OneTimePassword{
       identity: entity,
-      password: one_time_password,
+      password: hash_token(one_time_password),
       expires_at: expires_at
     }
     |> Nopass.Repo.insert!()
@@ -92,7 +92,7 @@ defmodule Nopass do
     now = System.os_time(:second)
 
     from(otp in Nopass.Schema.OneTimePassword,
-      where: otp.password == ^one_time_password and otp.expires_at >= ^now
+      where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now
     )
     |> Nopass.Repo.one()
     |> case do
@@ -137,7 +137,7 @@ defmodule Nopass do
 
     from(lt in Nopass.Schema.LoginToken,
       where:
-        lt.login_token == ^login_token and
+        lt.login_token == ^hash_token(login_token) and
           lt.expires_at >= ^now
     )
     |> Nopass.Repo.one()
@@ -176,7 +176,7 @@ defmodule Nopass do
   """
   def delete_login_token(login_token) do
     from(lt in Nopass.Schema.LoginToken,
-      where: lt.login_token == ^login_token
+      where: lt.login_token == ^hash_token(login_token)
     )
     |> Nopass.Repo.delete_all()
 
@@ -204,11 +204,15 @@ defmodule Nopass do
     {:ok, _} =
       %Nopass.Schema.LoginToken{
         identity: entity,
-        login_token: login_token,
+        login_token: hash_token(login_token),
         expires_at: expires_at
       }
       |> Nopass.Repo.insert()
 
     {:ok, login_token}
+  end
+
+  defp hash_token(token) do
+    :crypto.hash(:sha256, token) |> Base.url_encode64(padding: false)
   end
 end
