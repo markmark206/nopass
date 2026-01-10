@@ -8,28 +8,42 @@ Nopass is an Elixir library for passwordless authentication. It manages one-time
 
 ## Commands
 
+Prefer Makefile targets over direct mix commands:
+
+```bash
+# Run everything (build, db-setup, format-check, lint, test)
+make all
+
+# Run tests with coverage and warnings-as-errors
+make test
+
+# Run linter
+make lint
+
+# Format code
+make format
+
+# Check formatting without modifying
+make format-check
+
+# Compile with warnings-as-errors
+make build
+
+# Setup database
+make db-setup
+```
+
+Direct mix commands (use when Makefile targets aren't sufficient):
+
 ```bash
 # Install dependencies
 mix deps.get
-
-# Create and migrate database (requires PostgreSQL running locally)
-mix ecto.create
-mix ecto.migrate
-
-# Run tests (requires database to be set up)
-mix test
 
 # Run a single test file
 mix test test/nopass_test.exs
 
 # Run a specific test by line number
 mix test test/nopass_test.exs:18
-
-# Run linter
-mix credo
-
-# Run tests with coverage
-mix test --cover
 ```
 
 ## Database Requirements
@@ -43,11 +57,14 @@ mix test --cover
 
 The library has a simple structure centered around the `Nopass` module:
 
-- **`lib/nopass.ex`** - Main API module with four public functions:
+- **`lib/nopass.ex`** - Main API module with public functions:
   - `new_one_time_password/2` - Creates an OTP (prefixed with "otp")
   - `trade_one_time_password_for_login_token/2` - Exchanges valid OTP for login token (prefixed with "lt")
-  - `verify_login_token/1` - Validates a login token and returns identity
-  - `delete_login_token/1` - Revokes a login token
+  - `find_valid_login_token/1` - Looks up a login token and returns the record (or nil)
+  - `record_access_and_set_metadata/2` - Records access time and metadata for a token
+  - `delete_login_token/1` - Revokes a login token by token string
+  - `delete_login_token_by_id/1` - Revokes a login token by database ID
+  - `list_login_tokens_for_identity/1` - Lists all active tokens for an identity
 
 - **`lib/schema.ex`** - Ecto schemas for `one_time_passwords` and `login_tokens` tables. Both use integer timestamps (Unix epoch seconds).
 
@@ -59,4 +76,4 @@ The library has a simple structure centered around the `Nopass` module:
 
 ## Testing
 
-Tests use Ecto SQL Sandbox for isolation (`async: true` is enabled). The test file contains helper functions `test_use_only_find_otp_containing_identity_string/1` and `test_use_only_find_login_token_containing_identity_string/1` for verifying database state. Test coverage threshold is 100%.
+Tests use Ecto SQL Sandbox for isolation (`async: true` is enabled). The test file contains helper functions `test_use_only_find_otp_containing_identity_string/1` and `test_use_only_find_login_token_containing_identity_string/1` for verifying database state. Test coverage threshold is 97%.
