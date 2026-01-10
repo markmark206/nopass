@@ -34,6 +34,8 @@ defmodule Nopass.Schema.LoginToken do
     field(:identity, :string)
     field(:login_token, :string)
     field(:expires_at, :integer)
+    field(:last_verified_at, :integer)
+    field(:metadata, :map)
     timestamps()
   end
 end

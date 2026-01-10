@@ -29,6 +29,7 @@ defmodule Nopass do
   require Logger
 
   @password_dictionary Enum.to_list(?a..?z) ++ Enum.to_list(?A..?Z) ++ Enum.to_list(?0..?9)
+  @redacted_token "<redacted>"
 
   @doc ~S"""
   Generates a one-time password for an entity.
@@ -122,6 +123,7 @@ defmodule Nopass do
 
   Parameters:
      `login_token`: the login token to verify.
+     `metadata`: optional map of metadata to store with the token. When provided, updates `last_verified_at` and `metadata` fields.
 
   ## Examples
 
@@ -132,7 +134,7 @@ defmodule Nopass do
       iex> Nopass.verify_login_token("bad login token")
       {:error, :expired_or_missing}
   """
-  def verify_login_token(login_token) do
+  def verify_login_token(login_token, metadata \\ nil) do
     now = System.os_time(:second)
 
     from(lt in Nopass.Schema.LoginToken,
@@ -146,7 +148,26 @@ defmodule Nopass do
         {:error, :expired_or_missing}
 
       login_token_record ->
+        maybe_update_metadata(login_token_record, metadata)
         {:ok, login_token_record.identity}
+    end
+  end
+
+  defp maybe_update_metadata(_record, nil), do: :ok
+
+  defp maybe_update_metadata(record, metadata) do
+    now = System.os_time(:second)
+
+    case record
+         |> Ecto.Changeset.change(last_verified_at: now, metadata: metadata)
+         |> Nopass.Repo.update() do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("#{__MODULE__}: failed to update login token metadata: #{inspect(reason)}")
+
+        :ok
     end
   end
 
@@ -178,6 +199,60 @@ defmodule Nopass do
     from(lt in Nopass.Schema.LoginToken,
       where: lt.login_token == ^hash_token(login_token)
     )
+    |> Nopass.Repo.delete_all()
+
+    :ok
+  end
+
+  @doc ~S"""
+  Lists all non-expired login tokens for a given identity.
+
+  Returns a list of `Nopass.Schema.LoginToken` structs with `login_token` set to "<redacted>".
+
+  Parameters:
+     `identity`: the identity (e.g. email address) to list tokens for.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, _login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> [token] = Nopass.list_login_tokens_for_identity("luigi@mansion")
+      iex> %Nopass.Schema.LoginToken{login_token: "<redacted>"} = token
+      iex> is_integer(token.id) and token.identity == "luigi@mansion"
+      true
+  """
+  def list_login_tokens_for_identity(identity) do
+    now = System.os_time(:second)
+
+    from(lt in Nopass.Schema.LoginToken,
+      where: lt.identity == ^identity and lt.expires_at >= ^now,
+      order_by: [desc: lt.inserted_at]
+    )
+    |> Nopass.Repo.all()
+    |> Enum.map(fn token -> %{token | login_token: @redacted_token} end)
+  end
+
+  @doc ~S"""
+  Deletes a login token by its database ID.
+
+  Returns:
+  `:ok`
+
+  Parameters:
+     `id`: the database ID of the login token to delete.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, _login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> [token] = Nopass.list_login_tokens_for_identity("luigi@mansion")
+      iex> Nopass.delete_login_token_by_id(token.id)
+      :ok
+      iex> Nopass.list_login_tokens_for_identity("luigi@mansion")
+      []
+  """
+  def delete_login_token_by_id(id) do
+    from(lt in Nopass.Schema.LoginToken, where: lt.id == ^id)
     |> Nopass.Repo.delete_all()
 
     :ok
