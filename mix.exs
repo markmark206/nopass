@@ -4,7 +4,7 @@ defmodule Nopass.MixProject do
   def project do
     [
       app: :nopass,
-      version: "0.1.1",
+      version: "0.1.4",
       elixir: "~> 1.14",
       name: "Nopass",
       description:
