@@ -24,6 +24,7 @@ format-check:
 
 lint:
 	mix credo
+	mix hex.outdated || true
 
 test:
 	mix test --trace --cover --warnings-as-errors
