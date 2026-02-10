@@ -27,7 +27,18 @@ defmodule Nopass.Schema.OneTimePassword do
 end
 
 defmodule Nopass.Schema.LoginToken do
-  @moduledoc false
+  @moduledoc """
+  Schema for login tokens stored in the `login_tokens` table.
+
+  ## Fields
+
+  - `identity` - the user's identity string (e.g. email address)
+  - `login_token` - SHA-256 hash of the token (users hold the plaintext version)
+  - `expires_at` - expiration time as Unix epoch seconds
+  - `last_verified_at` - last verification time as Unix epoch seconds
+  - `metadata` - arbitrary map of metadata set via `Nopass.record_access_and_set_metadata/2`
+  - `inserted_at` / `updated_at` - auto-managed integer timestamps (Unix epoch seconds)
+  """
   use Nopass.Schema.Base
 
   schema "login_tokens" do
