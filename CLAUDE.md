@@ -77,4 +77,4 @@ The library has a simple structure centered around the `Nopass` module:
 
 ## Testing
 
-Tests use Ecto SQL Sandbox for isolation (`async: true` is enabled). The test file contains helper functions `test_use_only_find_otp_containing_identity_string/1` and `test_use_only_find_login_token_containing_identity_string/1` for verifying database state. Test coverage threshold is 97%.
+Tests use Ecto SQL Sandbox for isolation (`async: true` is enabled). The test file contains helper functions `test_use_only_find_otp_containing_identity_string/1` and `test_use_only_find_login_token_containing_identity_string/1` for verifying database state.

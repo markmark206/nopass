@@ -9,9 +9,9 @@ defmodule Nopass do
   This module simplifies implementing this sequence, by providing the following functions:
   1. `new_one_time_password()`: generates a new one-time password,
   2. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
-  3. `find_valid_login_token()`: looks up a login token and returns the record if valid,
-  4. `record_access_and_set_metadata()`: records access time and metadata for a login token,
-  5. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
+  3. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
+  4. `find_valid_login_token()`: looks up a login token and returns the record if valid,
+  5. `record_access_and_set_metadata()`: records access time and metadata for a login token,
   6. `delete_login_token()`: deletes a login token.
 
   The module relies on a postgres database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
