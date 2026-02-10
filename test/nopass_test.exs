@@ -35,13 +35,13 @@ defmodule NopassTest do
     {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
 
     # I can login with a good login token, but, ofc, not a bad login token.
-    {:ok, ^entity} = Nopass.verify_login_token(login_token)
-    {:error, :expired_or_missing} = Nopass.verify_login_token("nosuchtoken")
+    %Nopass.Schema.LoginToken{identity: ^entity} = Nopass.find_valid_login_token(login_token)
+    nil = Nopass.find_valid_login_token("nosuchtoken")
 
     # Once I log out (delete the login token), I can no longer login.
-    {:ok, ^entity} = Nopass.verify_login_token(login_token)
+    %Nopass.Schema.LoginToken{identity: ^entity} = Nopass.find_valid_login_token(login_token)
     :ok = Nopass.delete_login_token(login_token)
-    {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
+    nil = Nopass.find_valid_login_token(login_token)
     assert nil == Nopass.test_use_only_find_login_token_containing_identity_string(entity)
 
     # Deleting an already deleted or simply bad login token should be fine.
@@ -58,7 +58,7 @@ defmodule NopassTest do
         login_token_identity: "mario"
       )
 
-    {:ok, "mario"} = Nopass.verify_login_token(login_token)
+    %Nopass.Schema.LoginToken{identity: "mario"} = Nopass.find_valid_login_token(login_token)
   end
 
   test "login token identity, function" do
@@ -72,7 +72,7 @@ defmodule NopassTest do
         login_token_identity: f_prepend_with_yay
       )
 
-    {:ok, "yayluigi"} = Nopass.verify_login_token(login_token)
+    %Nopass.Schema.LoginToken{identity: "yayluigi"} = Nopass.find_valid_login_token(login_token)
   end
 
   test "try to use an expired one-time password" do
@@ -91,31 +91,71 @@ defmodule NopassTest do
     {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password, expires_after_seconds: 1)
 
     assert_looks_like_a_login_token(login_token)
-    {:ok, ^entity} = Nopass.verify_login_token(login_token)
+    %Nopass.Schema.LoginToken{identity: ^entity} = Nopass.find_valid_login_token(login_token)
     Process.sleep(2000)
-    {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
+    nil = Nopass.find_valid_login_token(login_token)
   end
 
-  test "verify a one-time password a bunch of times" do
+  test "find a login token a bunch of times" do
     entity = "wario"
     one_time_password = Nopass.new_one_time_password(entity)
     {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
 
     1..1000
     |> Enum.each(fn _ ->
-      {:ok, ^entity} = Nopass.verify_login_token(login_token)
+      %Nopass.Schema.LoginToken{identity: ^entity} = Nopass.find_valid_login_token(login_token)
     end)
 
     :ok = Nopass.delete_login_token(login_token)
 
     1..1000
     |> Enum.each(fn _ ->
-      {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
+      nil = Nopass.find_valid_login_token(login_token)
     end)
   end
 
-  test "verify_login_token with metadata updates last_verified_at and metadata", %{test_id: test_id} do
+  test "record_access_and_set_metadata updates last_verified_at and metadata", %{test_id: test_id} do
     entity = "bowser_#{test_id}"
+    metadata = %{"ip_address" => "1.2.3.4", "user_agent" => "test browser"}
+
+    one_time_password = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+
+    # Before recording access, last_verified_at should be nil
+    [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_before.last_verified_at == nil
+    assert token_before.metadata == nil
+    assert is_binary(token_before.login_token)
+
+    # Find the token and record access with metadata
+    record = Nopass.find_valid_login_token(login_token)
+    :ok = Nopass.record_access_and_set_metadata(record, metadata)
+
+    # After recording, last_verified_at and metadata should be set
+    [%Nopass.Schema.LoginToken{} = token_after] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_after.last_verified_at != nil
+    assert token_after.metadata == metadata
+  end
+
+  test "find_valid_login_token does not update the record", %{test_id: test_id} do
+    entity = "toad_#{test_id}"
+
+    one_time_password = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+
+    [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
+
+    # Find without recording access
+    %Nopass.Schema.LoginToken{identity: ^entity} = Nopass.find_valid_login_token(login_token)
+
+    # Record should not be updated
+    [%Nopass.Schema.LoginToken{} = token_after] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_after.last_verified_at == token_before.last_verified_at
+    assert token_after.metadata == token_before.metadata
+  end
+
+  test "verify_login_token with metadata updates last_verified_at and metadata", %{test_id: test_id} do
+    entity = "bowser_vlt_#{test_id}"
     metadata = %{"ip_address" => "1.2.3.4", "user_agent" => "test browser"}
 
     one_time_password = Nopass.new_one_time_password(entity)
@@ -125,7 +165,6 @@ defmodule NopassTest do
     [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
     assert token_before.last_verified_at == nil
     assert token_before.metadata == nil
-    assert token_before.login_token == "<redacted>"
 
     # Verify with metadata
     {:ok, ^entity} = Nopass.verify_login_token(login_token, metadata)
@@ -137,7 +176,7 @@ defmodule NopassTest do
   end
 
   test "verify_login_token without metadata does not update the record", %{test_id: test_id} do
-    entity = "toad_#{test_id}"
+    entity = "toad_vlt_#{test_id}"
 
     one_time_password = Nopass.new_one_time_password(entity)
     {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
@@ -172,7 +211,7 @@ defmodule NopassTest do
       assert is_integer(token.inserted_at)
       assert is_integer(token.expires_at)
       assert token.identity == entity
-      assert token.login_token == "<redacted>"
+      assert is_binary(token.login_token)
     end)
   end
 
@@ -208,7 +247,7 @@ defmodule NopassTest do
     :ok = Nopass.delete_login_token_by_id(token.id)
 
     # Token should no longer be valid
-    {:error, :expired_or_missing} = Nopass.verify_login_token(login_token)
+    nil = Nopass.find_valid_login_token(login_token)
     assert Nopass.list_login_tokens_for_identity(entity) == []
   end
 

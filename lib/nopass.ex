@@ -9,27 +9,27 @@ defmodule Nopass do
   This module simplifies implementing this sequence, by providing the following functions:
   1. `new_one_time_password()`: generates a new one-time password,
   2. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
-  3. `verify_login_token()`: verifies a login token,
-  4. `delete_login_token()`: deletes a login token.
+  3. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
+  4. `find_valid_login_token()`: looks up a login token and returns the record if valid,
+  5. `record_access_and_set_metadata()`: records access time and metadata for a login token,
+  6. `delete_login_token()`: deletes a login token.
 
   The module relies on a postgres database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
 
   Examples:
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
       iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
-      iex> Nopass.verify_login_token(login_token)
-      {:ok, "luigi@mansion"}
+      iex> %Nopass.Schema.LoginToken{identity: "luigi@mansion"} = Nopass.find_valid_login_token(login_token)
       iex> Nopass.delete_login_token(login_token)
       :ok
-      iex> Nopass.verify_login_token(login_token)
-      {:error, :expired_or_missing}
+      iex> Nopass.find_valid_login_token(login_token)
+      nil
   """
 
   import Ecto.Query
   require Logger
 
   @password_dictionary Enum.to_list(?a..?z) ++ Enum.to_list(?A..?Z) ++ Enum.to_list(?0..?9)
-  @redacted_token "<redacted>"
 
   @doc ~S"""
   Generates a one-time password for an entity.
@@ -78,8 +78,7 @@ defmodule Nopass do
 
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
       iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password, login_token_identity: fn x -> "user known as " <> x end)
-      iex> Nopass.verify_login_token(login_token)
-      {:ok, "user known as luigi@mansion"}
+      iex> %Nopass.Schema.LoginToken{identity: "user known as luigi@mansion"} = Nopass.find_valid_login_token(login_token)
       iex> {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
   """
   def trade_one_time_password_for_login_token(one_time_password, opts \\ []) do
@@ -116,8 +115,10 @@ defmodule Nopass do
   @doc ~S"""
   Verifies a login token.
 
+  This is a convenience wrapper around `find_valid_login_token/1` and `record_access_and_set_metadata/2`.
+
   Returns:
-  `{:ok, entity_name}` if the supplied token is valid.
+  `{:ok, identity}` if the supplied token is valid.
   `{:error, :expired_or_missing}` if the supplied token is not valid.
 
   Parameters:
@@ -134,6 +135,37 @@ defmodule Nopass do
       {:error, :expired_or_missing}
   """
   def verify_login_token(login_token, metadata \\ nil) do
+    case find_valid_login_token(login_token) do
+      nil ->
+        {:error, :expired_or_missing}
+
+      record ->
+        if metadata, do: record_access_and_set_metadata(record, metadata)
+        {:ok, record.identity}
+    end
+  end
+
+  @doc ~S"""
+  Looks up a login token and returns the record if valid.
+
+  Returns:
+  - `%Nopass.Schema.LoginToken{}` struct if the token is valid
+  - `nil` if the token is expired or does not exist
+
+  The returned struct includes: `id`, `identity`, `login_token` (hashed), `expires_at`, `inserted_at`, `last_verified_at`, `metadata`.
+
+  Parameters:
+     `login_token`: the login token to look up.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> %Nopass.Schema.LoginToken{identity: "luigi@mansion"} = Nopass.find_valid_login_token(login_token)
+      iex> Nopass.find_valid_login_token("bad login token")
+      nil
+  """
+  def find_valid_login_token(login_token) do
     now = System.os_time(:second)
 
     from(lt in Nopass.Schema.LoginToken,
@@ -142,31 +174,43 @@ defmodule Nopass do
           lt.expires_at >= ^now
     )
     |> Nopass.Repo.one()
-    |> case do
-      nil ->
-        {:error, :expired_or_missing}
-
-      login_token_record ->
-        maybe_update_metadata(login_token_record, metadata)
-        {:ok, login_token_record.identity}
-    end
   end
 
-  defp maybe_update_metadata(_record, nil), do: :ok
+  @doc ~S"""
+  Records access time and metadata for a login token.
 
-  defp maybe_update_metadata(record, metadata) do
+  Updates the `last_verified_at` timestamp to the current time and sets the `metadata` field.
+
+  Returns:
+  - `:ok` on success
+  - `:error` on failure (logs a warning)
+
+  Parameters:
+     `record`: the login token record (as returned by `find_valid_login_token/1`)
+     `metadata`: a map of metadata to store with the token
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> record = Nopass.find_valid_login_token(login_token)
+      iex> Nopass.record_access_and_set_metadata(record, %{"ip" => "127.0.0.1"})
+      :ok
+  """
+  def record_access_and_set_metadata(record, metadata) do
     now = System.os_time(:second)
 
-    case record
-         |> Ecto.Changeset.change(last_verified_at: now, metadata: metadata)
-         |> Nopass.Repo.update() do
+    record
+    |> Ecto.Changeset.change(last_verified_at: now, metadata: metadata)
+    |> Nopass.Repo.update()
+    |> case do
       {:ok, _} ->
         :ok
 
       {:error, reason} ->
         Logger.warning("#{__MODULE__}: failed to update login token metadata: #{inspect(reason)}")
 
-        :ok
+        :error
     end
   end
 
@@ -185,12 +229,11 @@ defmodule Nopass do
 
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
       iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
-      iex> Nopass.verify_login_token(login_token)
-      {:ok, "luigi@mansion"}
+      iex> %Nopass.Schema.LoginToken{identity: "luigi@mansion"} = Nopass.find_valid_login_token(login_token)
       iex> Nopass.delete_login_token(login_token)
       :ok
-      iex> Nopass.verify_login_token(login_token)
-      {:error, :expired_or_missing}
+      iex> Nopass.find_valid_login_token(login_token)
+      nil
       iex> Nopass.delete_login_token("no such login token")
       :ok
   """
@@ -206,7 +249,7 @@ defmodule Nopass do
   @doc ~S"""
   Lists all non-expired login tokens for a given identity.
 
-  Returns a list of `Nopass.Schema.LoginToken` structs with `login_token` set to "<redacted>".
+  Returns a list of `Nopass.Schema.LoginToken` structs.
 
   Parameters:
      `identity`: the identity (e.g. email address) to list tokens for.
@@ -216,7 +259,6 @@ defmodule Nopass do
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
       iex> {:ok, _login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
       iex> [token] = Nopass.list_login_tokens_for_identity("luigi@mansion")
-      iex> %Nopass.Schema.LoginToken{login_token: "<redacted>"} = token
       iex> is_integer(token.id) and token.identity == "luigi@mansion"
       true
   """
@@ -228,7 +270,6 @@ defmodule Nopass do
       order_by: [desc: lt.inserted_at]
     )
     |> Nopass.Repo.all()
-    |> Enum.map(fn token -> %{token | login_token: @redacted_token} end)
   end
 
   @doc ~S"""
