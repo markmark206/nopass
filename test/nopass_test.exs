@@ -154,6 +154,44 @@ defmodule NopassTest do
     assert token_after.metadata == token_before.metadata
   end
 
+  test "verify_login_token with metadata updates last_verified_at and metadata", %{test_id: test_id} do
+    entity = "bowser_vlt_#{test_id}"
+    metadata = %{"ip_address" => "1.2.3.4", "user_agent" => "test browser"}
+
+    one_time_password = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+
+    # Before verification with metadata, last_verified_at should be nil
+    [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_before.last_verified_at == nil
+    assert token_before.metadata == nil
+
+    # Verify with metadata
+    {:ok, ^entity} = Nopass.verify_login_token(login_token, metadata)
+
+    # After verification, last_verified_at and metadata should be set
+    [%Nopass.Schema.LoginToken{} = token_after] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_after.last_verified_at != nil
+    assert token_after.metadata == metadata
+  end
+
+  test "verify_login_token without metadata does not update the record", %{test_id: test_id} do
+    entity = "toad_vlt_#{test_id}"
+
+    one_time_password = Nopass.new_one_time_password(entity)
+    {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+
+    [%Nopass.Schema.LoginToken{} = token_before] = Nopass.list_login_tokens_for_identity(entity)
+
+    # Verify without metadata
+    {:ok, ^entity} = Nopass.verify_login_token(login_token)
+
+    # Record should not be updated
+    [%Nopass.Schema.LoginToken{} = token_after] = Nopass.list_login_tokens_for_identity(entity)
+    assert token_after.last_verified_at == token_before.last_verified_at
+    assert token_after.metadata == token_before.metadata
+  end
+
   test "list_login_tokens_for_identity returns correct tokens", %{test_id: test_id} do
     entity = "yoshi_#{test_id}"
 

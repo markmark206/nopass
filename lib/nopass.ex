@@ -11,7 +11,8 @@ defmodule Nopass do
   2. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
   3. `find_valid_login_token()`: looks up a login token and returns the record if valid,
   4. `record_access_and_set_metadata()`: records access time and metadata for a login token,
-  5. `delete_login_token()`: deletes a login token.
+  5. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
+  6. `delete_login_token()`: deletes a login token.
 
   The module relies on a postgres database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
 
@@ -177,6 +178,39 @@ defmodule Nopass do
         Logger.warning("#{__MODULE__}: failed to update login token metadata: #{inspect(reason)}")
 
         :error
+    end
+  end
+
+  @doc ~S"""
+  Verifies a login token.
+
+  This is a convenience wrapper around `find_valid_login_token/1` and `record_access_and_set_metadata/2`.
+
+  Returns:
+  `{:ok, identity}` if the supplied token is valid.
+  `{:error, :expired_or_missing}` if the supplied token is not valid.
+
+  Parameters:
+     `login_token`: the login token to verify.
+     `metadata`: optional map of metadata to store with the token. When provided, updates `last_verified_at` and `metadata` fields.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> {:ok, login_token} = Nopass.trade_one_time_password_for_login_token(one_time_password)
+      iex> Nopass.verify_login_token(login_token)
+      {:ok, "luigi@mansion"}
+      iex> Nopass.verify_login_token("bad login token")
+      {:error, :expired_or_missing}
+  """
+  def verify_login_token(login_token, metadata \\ nil) do
+    case find_valid_login_token(login_token) do
+      nil ->
+        {:error, :expired_or_missing}
+
+      record ->
+        if metadata, do: record_access_and_set_metadata(record, metadata)
+        {:ok, record.identity}
     end
   end
 

@@ -62,6 +62,7 @@ The library has a simple structure centered around the `Nopass` module:
   - `trade_one_time_password_for_login_token/2` - Exchanges valid OTP for login token (prefixed with "lt")
   - `find_valid_login_token/1` - Looks up a login token and returns the record (or nil)
   - `record_access_and_set_metadata/2` - Records access time and metadata for a token
+  - `verify_login_token/2` - Convenience wrapper: verifies a login token and optionally records metadata
   - `delete_login_token/1` - Revokes a login token by token string
   - `delete_login_token_by_id/1` - Revokes a login token by database ID
   - `list_login_tokens_for_identity/1` - Lists all active tokens for an identity
