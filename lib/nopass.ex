@@ -93,16 +93,15 @@ defmodule Nopass do
     now = System.os_time(:second)
 
     from(otp in Nopass.Schema.OneTimePassword,
-      where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now
+      where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now,
+      select: otp
     )
-    |> Nopass.Repo.one()
+    |> Nopass.Repo.delete_all()
     |> case do
-      nil ->
+      {0, _} ->
         {:error, :expired_or_missing}
 
-      otp_record ->
-        Nopass.Repo.delete(otp_record)
-
+      {_count, [otp_record | _]} ->
         login_token_identity =
           if is_function(login_token_params.login_token_identity) do
             login_token_params.login_token_identity.(otp_record.identity)
