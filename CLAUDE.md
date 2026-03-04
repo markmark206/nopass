@@ -59,6 +59,7 @@ The library has a simple structure centered around the `Nopass` module:
 
 - **`lib/nopass.ex`** - Main API module with public functions:
   - `new_one_time_password/2` - Creates an OTP (prefixed with "otp")
+  - `find_one_time_password/1` - Looks up an OTP and returns the record (or nil) without consuming it
   - `trade_one_time_password_for_login_token/2` - Exchanges valid OTP for login token (prefixed with "lt")
   - `find_valid_login_token/1` - Looks up a login token and returns the record (or nil)
   - `record_access_and_set_metadata/2` - Records access time and metadata for a token
