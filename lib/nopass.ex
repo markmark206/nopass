@@ -71,15 +71,7 @@ defmodule Nopass do
     one_time_password
   end
 
-  @doc ~S"""
-  Purges all one-time passwords and login tokens that expired more than 24 hours ago.
-
-  Returns `{:ok, %{purged_otps: count, purged_login_tokens: count}}`.
-
-  ## Examples
-
-      iex> {:ok, %{purged_otps: _, purged_login_tokens: _}} = Nopass.purge_expired_records()
-  """
+  @doc false
   def purge_expired_records() do
     grace_period = Application.get_env(:nopass, :cleanup_grace_period_seconds, 86_400)
     cutoff = System.os_time(:second) - grace_period
