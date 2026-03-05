@@ -352,15 +352,19 @@ defmodule Nopass do
     login_token = "lt" <> Nanoid.generate(length, @password_dictionary)
     expires_at = System.os_time(:second) + expires_after_seconds
 
-    {:ok, _} =
-      %Nopass.Schema.LoginToken{
-        identity: entity,
-        login_token: hash_token(login_token),
-        expires_at: expires_at
-      }
-      |> Nopass.Repo.insert()
+    %Nopass.Schema.LoginToken{
+      identity: entity,
+      login_token: hash_token(login_token),
+      expires_at: expires_at
+    }
+    |> Nopass.Repo.insert()
+    |> case do
+      {:ok, _} ->
+        {:ok, login_token}
 
-    {:ok, login_token}
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp hash_token(token) do
