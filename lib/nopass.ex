@@ -8,11 +8,12 @@ defmodule Nopass do
 
   This module simplifies implementing this sequence, by providing the following functions:
   1. `new_one_time_password()`: generates a new one-time password,
-  2. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
-  3. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
-  4. `find_valid_login_token()`: looks up a login token and returns the record if valid,
-  5. `record_access_and_set_metadata()`: records access time and metadata for a login token,
-  6. `delete_login_token()`: deletes a login token.
+  2. `find_one_time_password()`: looks up a one-time password and returns the record, without consuming it, if exists and not expired,
+  3. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
+  4. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
+  5. `find_valid_login_token()`: looks up a login token and returns the record if valid,
+  6. `record_access_and_set_metadata()`: records access time and metadata for a login token,
+  7. `delete_login_token()`: deletes a login token.
 
   The module relies on a postgres database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
 
@@ -62,6 +63,32 @@ defmodule Nopass do
     |> Nopass.Repo.insert!()
 
     one_time_password
+  end
+
+  @doc ~S"""
+  Looks up a one-time password and returns the record if valid. Does not consume the OTP.
+
+  Returns:
+  - `%Nopass.Schema.OneTimePassword{}` struct if the OTP is valid
+  - `nil` if the OTP is expired or does not exist
+
+  Parameters:
+     `one_time_password`: the one-time password to look up.
+
+  ## Examples
+
+      iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
+      iex> %Nopass.Schema.OneTimePassword{identity: "luigi@mansion"} = Nopass.find_one_time_password(one_time_password)
+      iex> Nopass.find_one_time_password("otp_no_such_otp")
+      nil
+  """
+  def find_one_time_password(one_time_password) when is_binary(one_time_password) do
+    now = System.os_time(:second)
+
+    from(otp in Nopass.Schema.OneTimePassword,
+      where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now
+    )
+    |> Nopass.Repo.one()
   end
 
   @doc ~S"""

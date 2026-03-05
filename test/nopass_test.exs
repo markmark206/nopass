@@ -82,6 +82,25 @@ defmodule NopassTest do
     {:error, :expired_or_missing} = Nopass.trade_one_time_password_for_login_token(one_time_password)
   end
 
+  test "find one time password", %{test_id: test_id} do
+    identity = "mario_#{test_id}"
+    one_time_password = Nopass.new_one_time_password(identity, expires_after_seconds: 30)
+    assert_looks_like_a_one_time_password(one_time_password)
+    otp = Nopass.find_one_time_password(one_time_password)
+    assert otp.identity == identity
+  end
+
+  test "find one time password returns nil for invalid otp" do
+    assert Nopass.find_one_time_password("otp_nonexistent") == nil
+  end
+
+  test "find expired one time password returns nil" do
+    one_time_password = Nopass.new_one_time_password("mario", expires_after_seconds: 1)
+    assert Nopass.find_one_time_password(one_time_password) != nil
+    Process.sleep(2000)
+    assert Nopass.find_one_time_password(one_time_password) == nil
+  end
+
   test "try to use an expired login token" do
     entity = "princess peach"
 
