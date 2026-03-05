@@ -118,25 +118,34 @@ defmodule Nopass do
 
     now = System.os_time(:second)
 
-    from(otp in Nopass.Schema.OneTimePassword,
-      where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now,
-      select: otp
-    )
-    |> Nopass.Repo.delete_all()
-    |> case do
-      {0, _} ->
-        {:error, :expired_or_missing}
+    Nopass.Repo.transaction(fn ->
+      from(otp in Nopass.Schema.OneTimePassword,
+        where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now,
+        select: otp
+      )
+      |> Nopass.Repo.delete_all()
+      |> case do
+        {0, _} ->
+          Nopass.Repo.rollback(:expired_or_missing)
 
-      {_count, [otp_record | _]} ->
-        login_token_identity =
-          if is_function(login_token_params.login_token_identity) do
-            login_token_params.login_token_identity.(otp_record.identity)
-          else
-            login_token_params.login_token_identity
+        {_count, [otp_record | _]} ->
+          login_token_identity =
+            if is_function(login_token_params.login_token_identity) do
+              login_token_params.login_token_identity.(otp_record.identity)
+            else
+              login_token_params.login_token_identity
+            end
+
+          case insert_login_token(
+                 login_token_identity,
+                 login_token_params.expires_after_seconds,
+                 login_token_params.length
+               ) do
+            {:ok, token} -> token
+            {:error, reason} -> Nopass.Repo.rollback(reason)
           end
-
-        insert_login_token(login_token_identity, login_token_params.expires_after_seconds, login_token_params.length)
-    end
+      end
+    end)
   end
 
   @doc ~S"""
