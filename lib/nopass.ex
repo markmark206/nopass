@@ -119,32 +119,7 @@ defmodule Nopass do
     now = System.os_time(:second)
 
     Nopass.Repo.transaction(fn ->
-      from(otp in Nopass.Schema.OneTimePassword,
-        where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now,
-        select: otp
-      )
-      |> Nopass.Repo.delete_all()
-      |> case do
-        {0, _} ->
-          Nopass.Repo.rollback(:expired_or_missing)
-
-        {_count, [otp_record | _]} ->
-          login_token_identity =
-            if is_function(login_token_params.login_token_identity) do
-              login_token_params.login_token_identity.(otp_record.identity)
-            else
-              login_token_params.login_token_identity
-            end
-
-          case insert_login_token(
-                 login_token_identity,
-                 login_token_params.expires_after_seconds,
-                 login_token_params.length
-               ) do
-            {:ok, token} -> token
-            {:error, reason} -> Nopass.Repo.rollback(reason)
-          end
-      end
+      delete_otp_and_insert_login_token(one_time_password, login_token_params, now)
     end)
   end
 
@@ -346,6 +321,35 @@ defmodule Nopass do
       where: like(otp.identity, ^"%#{identity_substring}%")
     )
     |> Nopass.Repo.one()
+  end
+
+  defp delete_otp_and_insert_login_token(one_time_password, login_token_params, now) do
+    from(otp in Nopass.Schema.OneTimePassword,
+      where: otp.password == ^hash_token(one_time_password) and otp.expires_at >= ^now,
+      select: otp
+    )
+    |> Nopass.Repo.delete_all()
+    |> case do
+      {0, _} ->
+        Nopass.Repo.rollback(:expired_or_missing)
+
+      {_count, [otp_record | _]} ->
+        login_token_identity =
+          if is_function(login_token_params.login_token_identity) do
+            login_token_params.login_token_identity.(otp_record.identity)
+          else
+            login_token_params.login_token_identity
+          end
+
+        case insert_login_token(
+               login_token_identity,
+               login_token_params.expires_after_seconds,
+               login_token_params.length
+             ) do
+          {:ok, token} -> token
+          {:error, reason} -> Nopass.Repo.rollback(reason)
+        end
+    end
   end
 
   defp insert_login_token(entity, expires_after_seconds, length) do
