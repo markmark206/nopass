@@ -8,7 +8,7 @@ defmodule Nopass do
 
   This module simplifies implementing this sequence, by providing the following functions:
   1. `new_one_time_password()`: generates a new one-time password,
-  2. `find_one_time_password()`: looks up a one-time password and returns the record if valid,
+  2. `find_one_time_password()`: looks up a one-time password and returns the record, without consuming it, if exists and not expired,
   3. `trade_one_time_password_for_login_token()`: trades a valid one-time password for a login token,
   4. `verify_login_token()`: verifies a login token (convenience wrapper around `find_valid_login_token` and `record_access_and_set_metadata`),
   5. `find_valid_login_token()`: looks up a login token and returns the record if valid,
