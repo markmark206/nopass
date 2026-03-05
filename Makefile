@@ -1,6 +1,7 @@
 .PHONY: \
 	all \
 	build \
+	build-docs \
 	db-setup \
 	format \
 	format-check \
@@ -11,6 +12,10 @@ all: build db-setup format-check lint test
 
 build:
 	mix compile --force --warnings-as-errors
+	mix docs --proglang elixir
+
+build-docs:
+	mix docs --proglang elixir
 
 db-setup:
 	mix ecto.create

@@ -4,7 +4,7 @@ defmodule Nopass.MixProject do
   def project do
     [
       app: :nopass,
-      version: "0.1.4",
+      version: "0.1.5",
       elixir: "~> 1.14",
       name: "Nopass",
       description:
@@ -43,6 +43,7 @@ defmodule Nopass.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.10"},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       {:nanoid, "~> 2.1"},
       {:postgrex, "~> 0.17"}
     ]
