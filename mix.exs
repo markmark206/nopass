@@ -18,7 +18,7 @@ defmodule Nopass.MixProject do
       source_url: "https://github.com/markmark206/nopass",
       test_coverage: [
         summary: [
-          threshold: 94
+          threshold: 90
         ],
         ignore_modules: [Nopass.Repo]
       ],

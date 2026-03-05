@@ -274,6 +274,116 @@ defmodule NopassTest do
     :ok = Nopass.delete_login_token_by_id(999_999_999)
   end
 
+  test "purge_expired_records deletes only records expired beyond grace period", %{test_id: test_id} do
+    now = System.os_time(:second)
+    grace_period = 86_400
+
+    # Create records expired beyond the 24h grace period (should be purged)
+    old_expired_identity = "old_expired_#{test_id}"
+
+    %Nopass.Schema.OneTimePassword{
+      identity: old_expired_identity,
+      password: "hash_old_otp_#{test_id}",
+      expires_at: now - grace_period - 100
+    }
+    |> Nopass.Repo.insert!()
+
+    %Nopass.Schema.LoginToken{
+      identity: old_expired_identity,
+      login_token: "hash_old_lt_#{test_id}",
+      expires_at: now - grace_period - 100
+    }
+    |> Nopass.Repo.insert!()
+
+    # Create records expired recently, within the 24h grace period (should be kept)
+    recent_expired_identity = "recent_expired_#{test_id}"
+
+    %Nopass.Schema.OneTimePassword{
+      identity: recent_expired_identity,
+      password: "hash_recent_otp_#{test_id}",
+      expires_at: now - 60
+    }
+    |> Nopass.Repo.insert!()
+
+    %Nopass.Schema.LoginToken{
+      identity: recent_expired_identity,
+      login_token: "hash_recent_lt_#{test_id}",
+      expires_at: now - 60
+    }
+    |> Nopass.Repo.insert!()
+
+    # Create valid (non-expired) records (should be kept)
+    valid_identity = "valid_#{test_id}"
+
+    %Nopass.Schema.OneTimePassword{
+      identity: valid_identity,
+      password: "hash_valid_otp_#{test_id}",
+      expires_at: now + 3600
+    }
+    |> Nopass.Repo.insert!()
+
+    %Nopass.Schema.LoginToken{
+      identity: valid_identity,
+      login_token: "hash_valid_lt_#{test_id}",
+      expires_at: now + 3600
+    }
+    |> Nopass.Repo.insert!()
+
+    # Purge
+    {:ok, %{purged_otps: otp_count, purged_login_tokens: lt_count}} = Nopass.purge_expired_records()
+
+    assert otp_count >= 1
+    assert lt_count >= 1
+
+    # Old expired records should be gone
+    assert Nopass.test_use_only_find_otp_containing_identity_string(old_expired_identity) == nil
+    assert Nopass.test_use_only_find_login_token_containing_identity_string(old_expired_identity) == nil
+
+    # Recently expired records should still exist (within grace period)
+    assert Nopass.test_use_only_find_otp_containing_identity_string(recent_expired_identity) != nil
+    assert Nopass.test_use_only_find_login_token_containing_identity_string(recent_expired_identity) != nil
+
+    # Valid records should still exist
+    assert Nopass.test_use_only_find_otp_containing_identity_string(valid_identity) != nil
+    assert Nopass.test_use_only_find_login_token_containing_identity_string(valid_identity) != nil
+  end
+
+  test "probabilistic cleanup triggers during otp generation", %{test_id: test_id} do
+    now = System.os_time(:second)
+    grace_period = 86_400
+    identity = "prob_cleanup_#{test_id}"
+
+    # Insert records expired well beyond the grace period
+    %Nopass.Schema.OneTimePassword{
+      identity: identity,
+      password: "hash_prob_otp_#{test_id}",
+      expires_at: now - grace_period - 100
+    }
+    |> Nopass.Repo.insert!()
+
+    %Nopass.Schema.LoginToken{
+      identity: identity,
+      login_token: "hash_prob_lt_#{test_id}",
+      expires_at: now - grace_period - 100
+    }
+    |> Nopass.Repo.insert!()
+
+    # Generate OTPs until cleanup fires and removes the expired records
+    Enum.reduce_while(1..10_000, nil, fn i, _ ->
+      Nopass.new_one_time_password("trigger_#{test_id}_#{i}")
+
+      if Nopass.test_use_only_find_otp_containing_identity_string(identity) == nil do
+        {:halt, :cleaned}
+      else
+        {:cont, nil}
+      end
+    end)
+    |> then(fn result -> assert result == :cleaned end)
+
+    # Login token should also be gone
+    assert Nopass.test_use_only_find_login_token_containing_identity_string(identity) == nil
+  end
+
   defp assert_looks_like_a_one_time_password(one_time_password) do
     assert one_time_password
     assert String.length(one_time_password) == 23

@@ -62,7 +62,32 @@ defmodule Nopass do
     }
     |> Nopass.Repo.insert!()
 
+    cleanup_probability = Application.get_env(:nopass, :cleanup_probability, 200)
+
+    if cleanup_probability > 0 and :rand.uniform(cleanup_probability) == 1 do
+      purge_expired_records()
+    end
+
     one_time_password
+  end
+
+  @doc false
+  def purge_expired_records() do
+    grace_period = Application.get_env(:nopass, :cleanup_grace_period_seconds, 86_400)
+    cutoff = System.os_time(:second) - grace_period
+
+    {otp_count, _} =
+      from(otp in Nopass.Schema.OneTimePassword, where: otp.expires_at < ^cutoff)
+      |> Nopass.Repo.delete_all()
+
+    {lt_count, _} =
+      from(lt in Nopass.Schema.LoginToken, where: lt.expires_at < ^cutoff)
+      |> Nopass.Repo.delete_all()
+
+    if otp_count > 0, do: Logger.info("#{__MODULE__}: purged #{otp_count} expired one-time passwords")
+    if lt_count > 0, do: Logger.info("#{__MODULE__}: purged #{lt_count} expired login tokens")
+
+    {:ok, %{purged_otps: otp_count, purged_login_tokens: lt_count}}
   end
 
   @doc ~S"""
