@@ -24,3 +24,6 @@ nopass-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Throwaway scratch scripts (see CLAUDE.md).
+/scratch/
