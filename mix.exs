@@ -5,7 +5,7 @@ defmodule Nopass.MixProject do
     [
       app: :nopass,
       version: "0.1.5",
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       name: "Nopass",
       description:
         "Nopass simplifies managing magic codes (aka 'one-time passwords') and login tokens for passwordless experiences.",

@@ -30,6 +30,7 @@ format-check:
 lint:
 	mix credo
 	mix hex.outdated || true
+	mix hex.audit
 
 test:
 	mix test --trace --cover --warnings-as-errors
