@@ -27,3 +27,9 @@ nopass-*.tar
 
 # Throwaway scratch scripts (see CLAUDE.md).
 /scratch/
+
+# SQLite database files (created at the repo root when NOPASS_ADAPTER=sqlite).
+*.db
+*.db-shm
+*.db-wal
+*.db-journal

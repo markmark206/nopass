@@ -15,7 +15,8 @@ defmodule Nopass do
   6. `record_access_and_set_metadata()`: records access time and metadata for a login token,
   7. `delete_login_token()`: deletes a login token.
 
-  The module relies on a postgres database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
+  The module relies on a relational database, where it maintains two tables, `one_time_passwords` and `login_tokens`, which means that login tokens can be revoked.
+  PostgreSQL is used by default; SQLite is also supported. See the README for how to select and configure an adapter.
 
   Examples:
       iex> one_time_password = Nopass.new_one_time_password("luigi@mansion")
@@ -285,7 +286,8 @@ defmodule Nopass do
   @doc ~S"""
   Lists all non-expired login tokens for a given identity.
 
-  Returns a list of `Nopass.Schema.LoginToken` structs.
+  Returns a list of `Nopass.Schema.LoginToken` structs, newest first. Tokens issued within the same
+  second are ordered by descending id, so the order is stable.
 
   Parameters:
      `identity`: the identity (e.g. email address) to list tokens for.
@@ -303,7 +305,7 @@ defmodule Nopass do
 
     from(lt in Nopass.Schema.LoginToken,
       where: lt.identity == ^identity and lt.expires_at >= ^now,
-      order_by: [desc: lt.inserted_at]
+      order_by: [desc: lt.inserted_at, desc: lt.id]
     )
     |> Nopass.Repo.all()
   end
