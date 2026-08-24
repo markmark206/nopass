@@ -61,6 +61,12 @@ These bounds reflect versions current at the time of writing. If a later `ecto_s
 `exqlite ~> 1.0`, the `< 1.0.0` bound will conflict; widen it deliberately rather than dropping it,
 since the bound exists to turn a silent misconfiguration into a visible one.
 
+Nopass itself declares only `{:exqlite, ">= 0.27.0", optional: true}`, with no upper bound, and that
+asymmetry is deliberate. The lower bound is what prevents the silent revert described above, so nopass
+enforces it for everyone. An upper bound inside nopass would be one you cannot widen without patching
+nopass or resorting to `override: true`, so that half of the decision is left to you, in the line above
+that you control.
+
 Check your Ecto version too: `ecto_sqlite3` 0.24.1 requires `ecto ~> 3.14` and `ecto_sql ~> 3.14`. An
 app holding `ecto_sql` at 3.12 or 3.13 will hit a resolution failure and must upgrade Ecto first.
 
@@ -83,9 +89,13 @@ adapter Ecto.Adapters.SQLite3 was not compiled, ensure it is correct
 and it is included as a project dependency
 ```
 
-Changing this key later does not require any manual step — Mix tracks compile-time configuration per
-application and recompiles nopass automatically. If you ever do see a stale compile-env error, run
-`mix deps.compile nopass --force`.
+Changing this key later requires no manual step. Mix tracks compile-time configuration per
+application, so editing your config file makes it recompile nopass on the next build.
+
+That auto-recompile follows from the config *file* changing. If you instead select the adapter from
+something Mix cannot see change — reading an environment variable inside `config.exs`, say — nothing
+looks stale, and Mix reports a compile-time/runtime mismatch rather than rebuilding. Its own suggested
+remedy is `mix deps.clean nopass --build`; `mix deps.compile nopass --force` works too.
 
 ### 3. Configure the database
 

@@ -129,8 +129,10 @@ There is no scheduled job. `new_one_time_password/2` probabilistically calls `pu
 
 `mix.exs` declares `elixir: "~> 1.17"` (the floor comes from `ecto_sqlite3`, which requires it) and CI
 (`.github/workflows/validate.yml`) runs `make all` against an Elixir 1.19 / 1.20 × OTP 27 / 28 ×
-adapter matrix, plus two Elixir 1.17.3 legs that pin the declared floor. Local development pins Elixir
-1.20.2 / Erlang 28.5 via `.tool-versions`. Avoid syntax or stdlib functions newer than Elixir 1.17.
+adapter matrix, plus four Elixir 1.17.3 legs (OTP 27.2 and OTP 26.0.1, each against both adapters)
+that pin the declared floor and keep the oldest supported OTP covered — 12 jobs in total. Local
+development pins Elixir 1.20.2 / Erlang 28.5 via `.tool-versions`. Avoid syntax or stdlib functions
+newer than Elixir 1.17.
 
 Formatting is `line_length: 120` (`.formatter.exs`).
 
