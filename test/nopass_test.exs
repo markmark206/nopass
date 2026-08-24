@@ -255,6 +255,30 @@ defmodule NopassTest do
     assert Nopass.list_login_tokens_for_identity("unknown_identity_xyz") == []
   end
 
+  test "list_login_tokens_for_identity returns a deterministic, newest-first order", %{test_id: test_id} do
+    entity = "peach_#{test_id}"
+
+    for _ <- 1..5 do
+      otp = Nopass.new_one_time_password(entity)
+      {:ok, _login_token} = Nopass.trade_one_time_password_for_login_token(otp)
+    end
+
+    listed = Nopass.list_login_tokens_for_identity(entity)
+    assert length(listed) == 5
+
+    ids = Enum.map(listed, & &1.id)
+    assert ids == Enum.sort(ids, :desc)
+
+    # Tokens issued in the same second tie on inserted_at; the order must still repeat exactly.
+    assert ids == Enum.map(Nopass.list_login_tokens_for_identity(entity), & &1.id)
+  end
+
+  if System.get_env("NOPASS_ADAPTER", "postgres") == "postgres" do
+    test "defaults to the Postgres adapter when :adapter is unconfigured" do
+      assert Nopass.Repo.__adapter__() == Ecto.Adapters.Postgres
+    end
+  end
+
   test "delete_login_token_by_id deletes the correct token", %{test_id: test_id} do
     entity = "diddy_#{test_id}"
 

@@ -11,21 +11,28 @@ permissions:
 
 jobs:
   validate:
-    name: Validate Changes (Elixir ${{ matrix.elixir }}, OTP ${{ matrix.otp }})
+    name: Validate Changes (Elixir ${{ matrix.elixir }}, OTP ${{ matrix.otp }}, ${{ matrix.adapter }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        elixir: ["1.15.0", "1.19.1", "1.20.2"]
-        otp: ["26.0.1", "27.2", "28.5"]
-        exclude:
-          - elixir: "1.15.0"
+        elixir: ["1.19.1", "1.20.2"]
+        otp: ["27.2", "28.5"]
+        adapter: ["postgres", "sqlite"]
+        # 1.17.3 has no OTP 28 build, so the floor legs go here rather than on the axis.
+        # OTP 26 stays covered: mix.exs declares no OTP floor and 1.17 supports 25-27.
+        include:
+          - elixir: "1.17.3"
             otp: "27.2"
-          - elixir: "1.19.1"
+            adapter: "postgres"
+          - elixir: "1.17.3"
+            otp: "27.2"
+            adapter: "sqlite"
+          - elixir: "1.17.3"
             otp: "26.0.1"
-          - elixir: "1.15.0"
-            otp: "28.5"
-          - elixir: "1.20.2"
+            adapter: "postgres"
+          - elixir: "1.17.3"
             otp: "26.0.1"
+            adapter: "sqlite"
     services:
        pg:
         image: postgres:15.2
@@ -56,3 +63,5 @@ jobs:
       run: mix deps.get
     - name: Validate Changes
       run: make all
+      env:
+        NOPASS_ADAPTER: ${{ matrix.adapter }}
