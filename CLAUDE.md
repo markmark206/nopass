@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Nopass is a published Hex library (`nopass`) for passwordless authentication: it issues one-time
-passwords ("magic codes"), trades them for longer-lived login tokens, and stores both in PostgreSQL
-so tokens can be revoked.
+Nopass is a library (`nopass`) for passwordless authentication: it issues one-time
+passwords ("magic codes"), trades them for longer-lived login tokens, and stores both in a relational
+database so tokens can be revoked. It is distributed via git tag, not published on Hex — the
+`package:` block in `mix.exs` is publish-ready but has never been exercised.
 
 ## Commands
 
@@ -19,9 +20,16 @@ make db-setup      # mix ecto.create && mix ecto.migrate
 make format        # mix format
 make format-check  # mix format --check-formatted
 make lint          # mix credo, mix hex.outdated (non-fatal), mix hex.audit
-make test          # mix test --trace --cover --warnings-as-errors
+make test          # force-recompile MIX_ENV=test, then mix test --trace --cover --warnings-as-errors
+make test-postgres # make test against Postgres
+make test-sqlite   # make test against SQLite
+make test-adapters # both of the above, in sequence
 make build-docs    # mix docs only
 ```
+
+`make test` runs against whichever adapter `NOPASS_ADAPTER` names (Postgres by default). The named
+per-adapter targets exist so no one has to know the variable. Postgres legs need a local PostgreSQL
+server; SQLite legs need nothing installed.
 
 Direct mix commands (when Makefile targets aren't sufficient):
 
@@ -34,11 +42,28 @@ mix test test/nopass_test.exs:18     # single test by line
 `make test` enforces a **90% coverage threshold** (`test_coverage` in `mix.exs`, with `Nopass.Repo`
 ignored) and treats warnings as errors — new code without tests will fail the build.
 
+Set `NOPASS_ADAPTER=sqlite` on any target to run against SQLite instead of Postgres
+(`NOPASS_ADAPTER=sqlite make all`). The adapter is baked in at compile time, so flipping it requires a
+recompile: `make build` forces one for `MIX_ENV=dev` and `make test` forces one for `MIX_ENV=test`
+(they use separate build directories, so both are needed). A bare `mix test` or `mix run` after a flip
+raises a compile-env mismatch instead of silently using the old adapter — pass the same
+`NOPASS_ADAPTER` you last built with, or run a `make` target to resync.
+
+The Makefile sets `.NOTPARALLEL:` because all targets share one `_build` tree; without it `make -j`
+would let two adapter legs recompile `MIX_ENV=test` over each other.
+
 ## Database Requirements
 
-- PostgreSQL must be running locally; default connection `postgres:postgres@localhost/nopass_repo`.
-- There is a **single `config/config.exs` for all environments**, and it always sets
-  `pool: Ecto.Adapters.SQL.Sandbox`. Consumers of the library configure `Nopass.Repo` themselves.
+- Two adapters are supported, selected by the `NOPASS_ADAPTER` env var (`postgres`, the default, or
+  `sqlite`). `Nopass.Repo` resolves its adapter through `Application.compile_env(:nopass, :adapter,
+  Ecto.Adapters.Postgres)`; Ecto requires the adapter at compile time, so this cannot be runtime config.
+- For the Postgres default, PostgreSQL must be running locally; default connection
+  `postgres:postgres@localhost/nopass_repo`. For `sqlite`, a `nopass_repo.db` file is created at the
+  repo root.
+- There is a **single `config/config.exs` for all environments**; it branches on adapter, not on
+  environment, and always sets `pool: Ecto.Adapters.SQL.Sandbox`. Consumers of the library configure
+  `Nopass.Repo` themselves. `config.exs` deliberately leaves `:adapter` unset on the Postgres branch,
+  so those runs exercise the same default a consumer who configures nothing gets.
 - Migrations run automatically at application start via `{Ecto.Migrator, repos: [Nopass.Repo]}` in
   `lib/nopass/application.ex` — there is no separate migration step for library consumers.
 
@@ -94,12 +119,20 @@ There is no scheduled job. `new_one_time_password/2` probabilistically calls `pu
   `Nopass.test_use_only_find_login_token_containing_identity_string/1` are defined in `lib/nopass.ex`
   (not in the test file) and exist purely to assert DB state from tests.
 - Tests namespace identities with a per-test `test_id()` suffix so parallel runs don't collide.
+- `ecto_sqlite3` does not support the async sandbox, so `make test` passes `--max-cases 1` when
+  `NOPASS_ADAPTER=sqlite`. This is a no-op while `test/nopass_test.exs` is the only test module, since
+  ExUnit parallelizes across modules rather than within one.
+- The "defaults to the Postgres adapter" test is wrapped in an `NOPASS_ADAPTER` check, since the
+  adapter legitimately differs on the SQLite legs.
 
 ## Compatibility
 
-`mix.exs` declares `elixir: "~> 1.15"` and CI (`.github/workflows/validate.yml`) runs `make all`
-against an Elixir 1.15 / 1.19 / 1.20 × OTP 26 / 27 / 28 matrix. Local development pins Elixir 1.20.2 /
-Erlang 28.5 via `.tool-versions`. Avoid syntax or stdlib functions newer than Elixir 1.15.
+`mix.exs` declares `elixir: "~> 1.17"` (the floor comes from `ecto_sqlite3`, which requires it) and CI
+(`.github/workflows/validate.yml`) runs `make all` against an Elixir 1.19 / 1.20 × OTP 27 / 28 ×
+adapter matrix, plus four Elixir 1.17.3 legs (OTP 27.2 and OTP 26.0.1, each against both adapters)
+that pin the declared floor and keep the oldest supported OTP covered — 12 jobs in total. Local
+development pins Elixir 1.20.2 / Erlang 28.5 via `.tool-versions`. Avoid syntax or stdlib functions
+newer than Elixir 1.17.
 
 Formatting is `line_length: 120` (`.formatter.exs`).
 

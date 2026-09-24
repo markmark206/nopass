@@ -4,8 +4,8 @@ defmodule Nopass.MixProject do
   def project do
     [
       app: :nopass,
-      version: "0.1.5",
-      elixir: "~> 1.15",
+      version: "0.2.0",
+      elixir: "~> 1.17",
       name: "Nopass",
       description:
         "Nopass simplifies managing magic codes (aka 'one-time passwords') and login tokens for passwordless experiences.",
@@ -43,7 +43,10 @@ defmodule Nopass.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.10"},
+      {:ecto_sqlite3, ">= 0.17.4 and < 1.0.0", optional: true},
+      {:exqlite, ">= 0.27.0", optional: true},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:jason, "~> 1.4"},
       {:nanoid, "~> 2.1"},
       {:postgrex, "~> 0.17"}
     ]
