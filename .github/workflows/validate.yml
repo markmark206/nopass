@@ -35,7 +35,7 @@ jobs:
             adapter: "sqlite"
     services:
        pg:
-        image: postgres:15.2
+        image: postgres:17
         ports:
           - 5432:5432
         env:
